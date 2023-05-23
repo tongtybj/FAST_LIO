@@ -50,6 +50,8 @@ class ImuProcess
   void set_acc_bias_cov(const V3D &b_a);
   Eigen::Matrix<double, 12, 12> Q;
   void Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI::Ptr pcl_un_);
+  void OnlyPredict(sensor_msgs::Imu::ConstPtr imu, sensor_msgs::Imu::ConstPtr prev_imu, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state);
+  sensor_msgs::ImuConstPtr getLastImu() const { return last_imu_; }
 
   ofstream fout_imu;
   V3D cov_acc;
@@ -208,7 +210,6 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 
   init_P(21,21) = init_P(22,22) = 0.00001; 
   kf_state.change_P(init_P);
   last_imu_ = meas.imu.back();
-
 }
 
 void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI &pcl_out)
@@ -239,8 +240,10 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   double dt = 0;
 
   input_ikfom in;
+  int cnt = 0;
   for (auto it_imu = v_imu.begin(); it_imu < (v_imu.end() - 1); it_imu++)
   {
+    cnt++;
     auto &&head = *(it_imu);
     auto &&tail = *(it_imu + 1);
     
@@ -259,8 +262,17 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
 
     if(head->header.stamp.toSec() < last_lidar_end_time_)
     {
+      // this part is only for first instance that use the last imu data which is older than last lidar end time
+      
       dt = tail->header.stamp.toSec() - last_lidar_end_time_;
       // dt = tail->header.stamp.toSec() - pcl_beg_time;
+
+      // debug by bakui
+      // ROS_ERROR("wired!! imu head: %f, imu tail: %f, last lidar: %f, cnt: %d",
+      //           head->header.stamp.toSec(),
+      //           tail->header.stamp.toSec(),
+      //           last_lidar_end_time_,
+      //           cnt);
     }
     else
     {
@@ -273,7 +285,8 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
     Q.block<3, 3>(3, 3).diagonal() = cov_acc;
     Q.block<3, 3>(6, 6).diagonal() = cov_bias_gyr;
     Q.block<3, 3>(9, 9).diagonal() = cov_bias_acc;
-    kf_state.predict(dt, Q, in);
+    //std::cout << Q.diagonal().transpose() << std::endl;
+    kf_state .predict(dt, Q, in);
 
     /* save the poses at each IMU measurements */
     imu_state = kf_state.get_x();
@@ -295,6 +308,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   imu_state = kf_state.get_x();
   last_imu_ = meas.imu.back();
   last_lidar_end_time_ = pcl_end_time;
+  //ROS_INFO("last_lidar_end_time_: %f, last_imu_time: %f", last_lidar_end_time_, last_imu_->header.stamp.toSec());
 
   /*** undistort each lidar point (backward propagation) ***/
   if (pcl_out.points.begin() == pcl_out.points.end()) return;
@@ -374,4 +388,34 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
   t3 = omp_get_wtime();
   
   // cout<<"[ IMU Process ]: Time: "<<t3 - t1<<endl;
+}
+
+
+void ImuProcess::OnlyPredict(sensor_msgs::Imu::ConstPtr imu, sensor_msgs::Imu::ConstPtr prev_imu, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state)
+{
+  double dt = 0;
+  if(prev_imu->header.stamp.toSec() < last_lidar_end_time_)
+    {
+      dt = imu->header.stamp.toSec() - last_lidar_end_time_;
+    }
+  else
+    {
+      dt = imu->header.stamp.toSec() - prev_imu->header.stamp.toSec();
+    }
+
+  V3D angvel_avr, acc_avr;
+  angvel_avr <<
+    0.5 * (prev_imu->angular_velocity.x + imu->angular_velocity.x),
+    0.5 * (prev_imu->angular_velocity.y + imu->angular_velocity.y),
+    0.5 * (prev_imu->angular_velocity.z + imu->angular_velocity.z);
+  acc_avr   <<
+    0.5 * (prev_imu->linear_acceleration.x + imu->linear_acceleration.x),
+    0.5 * (prev_imu->linear_acceleration.y + imu->linear_acceleration.y),
+    0.5 * (prev_imu->linear_acceleration.z + imu->linear_acceleration.z);
+  acc_avr  = acc_avr * G_m_s2 / mean_acc.norm();
+
+  input_ikfom in;
+  in.acc = acc_avr;
+  in.gyro = angvel_avr;
+  kf_state .predict(dt, Q, in);
 }

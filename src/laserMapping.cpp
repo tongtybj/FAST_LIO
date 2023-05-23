@@ -128,6 +128,7 @@ M3D Lidar_R_wrt_IMU(Eye3d);
 /*** EKF inputs and output ***/
 MeasureGroup Measures;
 esekfom::esekf<state_ikfom, 12, input_ikfom> kf;
+esekfom::esekf<state_ikfom, 12, input_ikfom> kf_pre; // precede for only predict the state based on latest IMU data
 state_ikfom state_point;
 vect3 pos_lid;
 
@@ -138,6 +139,8 @@ geometry_msgs::PoseStamped msg_body_pose;
 
 shared_ptr<Preprocess> p_pre(new Preprocess());
 shared_ptr<ImuProcess> p_imu(new ImuProcess());
+
+ros::Publisher pubPrecedeOdom;
 
 void SigHandle(int sig)
 {
@@ -303,6 +306,7 @@ void livox_pcl_cbk(const livox_ros_driver2::CustomMsg::ConstPtr &msg)
     mtx_buffer.lock();
     double preprocess_start_time = omp_get_wtime();
     scan_count ++;
+    //ROS_INFO("LiDAR got at: %f",msg->header.stamp.toSec());
     if (msg->header.stamp.toSec() < last_timestamp_lidar)
     {
         ROS_ERROR("lidar loop back, clear buffer");
@@ -335,7 +339,7 @@ void livox_pcl_cbk(const livox_ros_driver2::CustomMsg::ConstPtr &msg)
 void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in) 
 {
     publish_count ++;
-    // cout<<"IMU got at: "<<msg_in->header.stamp.toSec()<<endl;
+    //ROS_INFO("IMU got at: %f",msg_in->header.stamp.toSec());
     sensor_msgs::Imu::Ptr msg(new sensor_msgs::Imu(*msg_in));
 
     msg->header.stamp = ros::Time().fromSec(msg_in->header.stamp.toSec() - time_diff_lidar_to_imu);
@@ -344,6 +348,9 @@ void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in)
         msg->header.stamp = \
         ros::Time().fromSec(timediff_lidar_wrt_imu + msg_in->header.stamp.toSec());
     }
+
+    // ROS_INFO("time_diff_lidar_to_imu: %f, timediff_lidar_wrt_imu: %f",
+    //          time_diff_lidar_to_imu, timediff_lidar_wrt_imu);
 
     double timestamp = msg->header.stamp.toSec();
 
@@ -355,8 +362,40 @@ void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in)
         imu_buffer.clear();
     }
 
-    last_timestamp_imu = timestamp;
+    /*** do precedent predict to get latest state with KF ***/
+    if (imu_buffer.size() > 0)
+      {
+        p_imu->OnlyPredict(msg, imu_buffer.back(), kf_pre);
+      }
+    else
+      {
+        sensor_msgs::Imu::ConstPtr init_imu(new sensor_msgs::Imu());
+        p_imu->OnlyPredict(msg, init_imu, kf_pre);
+      }
 
+    // publish
+    nav_msgs::Odometry odom_msg;
+    odom_msg.header.frame_id = "camera_init";
+    odom_msg.child_frame_id = "body";
+    odom_msg.header.stamp = msg->header.stamp;
+    auto kf_pre_state = kf_pre.get_x();
+    odom_msg.pose.pose.position.x = kf_pre_state.pos(0);
+    odom_msg.pose.pose.position.y = kf_pre_state.pos(1);
+    odom_msg.pose.pose.position.z = kf_pre_state.pos(2);
+    odom_msg.pose.pose.orientation.x = kf_pre_state.rot.coeffs()[0];
+    odom_msg.pose.pose.orientation.y = kf_pre_state.rot.coeffs()[1];
+    odom_msg.pose.pose.orientation.z = kf_pre_state.rot.coeffs()[2];
+    odom_msg.pose.pose.orientation.w = kf_pre_state.rot.coeffs()[3];
+    odom_msg.twist.twist.linear.x = kf_pre_state.vel(0);
+    odom_msg.twist.twist.linear.y = kf_pre_state.vel(1);
+    odom_msg.twist.twist.linear.z = kf_pre_state.vel(2);
+    odom_msg.twist.twist.angular.x = msg->angular_velocity.x - kf_pre_state.bg(0);
+    odom_msg.twist.twist.angular.y = msg->angular_velocity.y - kf_pre_state.bg(1);
+    odom_msg.twist.twist.angular.z = msg->angular_velocity.z - kf_pre_state.bg(2);
+    pubPrecedeOdom.publish(odom_msg);
+
+
+    last_timestamp_imu = timestamp;
     imu_buffer.push_back(msg);
     mtx_buffer.unlock();
     sig_buffer.notify_all();
@@ -411,6 +450,12 @@ bool sync_packages(MeasureGroup &meas)
         meas.imu.push_back(imu_buffer.front());
         imu_buffer.pop_front();
     }
+
+    // printf(" lidar_end_time: %f, meas.lidar_beg_time: %f + lidar_mean_scantime: %f \n", lidar_end_time, meas.lidar_beg_time, lidar_mean_scantime);
+    // for (auto& s: imu_buffer)
+    //   {
+    //     printf(" imu ts: %f \n", s->header.stamp.toSec());
+    //   }
 
     lidar_buffer.pop_front();
     time_buffer.pop_front();
@@ -819,6 +864,7 @@ int main(int argc, char** argv)
     double epsi[23] = {0.001};
     fill(epsi, epsi+23, 0.001);
     kf.init_dyn_share(get_f, df_dx, df_dw, h_share_model, NUM_MAX_ITERATIONS, epsi);
+    kf_pre.init_dyn_share(get_f, df_dx, df_dw, h_share_model, NUM_MAX_ITERATIONS, epsi);
 
     /*** debug record ***/
     FILE *fp;
@@ -851,6 +897,7 @@ int main(int argc, char** argv)
             ("/Odometry", 100000);
     ros::Publisher pubPath          = nh.advertise<nav_msgs::Path> 
             ("/path", 100000);
+    pubPrecedeOdom = nh.advertise<nav_msgs::Odometry>("/Odometry_precede", 100000);
 //------------------------------------------------------------------------------------------------------
     signal(SIGINT, SigHandle);
     ros::Rate rate(5000);
@@ -958,6 +1005,27 @@ int main(int argc, char** argv)
             geoQuat.y = state_point.rot.coeffs()[1];
             geoQuat.z = state_point.rot.coeffs()[2];
             geoQuat.w = state_point.rot.coeffs()[3];
+
+            /*** update the precedent kf ***/
+            auto kf_x = kf.get_x();
+            auto kf_P = kf.get_P();
+            kf_pre.change_x(kf_x);
+            kf_pre.change_P(kf_P);
+
+            // re-predict the residual term
+            for (size_t i = 0; i < imu_buffer.size(); i++)
+              {
+                if (i == 0)
+                  {
+                    p_imu->OnlyPredict(imu_buffer.at(i), p_imu->getLastImu(), kf_pre);
+                    //ROS_INFO("p_imu->getLastImu(): %f, lidar_end_time: %f", p_imu->getLastImu()->header.stamp.toSec(), lidar_end_time);
+                  }
+                else
+                  {
+                    p_imu->OnlyPredict(imu_buffer.at(i), imu_buffer.at(i-1), kf_pre);
+                  }
+                //ROS_INFO(" re-propagate imu [ts: %f]", imu_buffer.at(i)->header.stamp.toSec());
+              }
 
             double t_update_end = omp_get_wtime();
 
