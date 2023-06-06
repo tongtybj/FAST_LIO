@@ -52,6 +52,7 @@ class ImuProcess
   void Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI::Ptr pcl_un_);
   void OnlyPredict(sensor_msgs::Imu::ConstPtr imu, sensor_msgs::Imu::ConstPtr prev_imu, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state);
   sensor_msgs::ImuConstPtr getLastImu() const { return last_imu_; }
+  bool getImuInit() const { return !imu_need_init_; }
 
   ofstream fout_imu;
   V3D cov_acc;
@@ -393,6 +394,12 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
 
 void ImuProcess::OnlyPredict(sensor_msgs::Imu::ConstPtr imu, sensor_msgs::Imu::ConstPtr prev_imu, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state)
 {
+
+  if (imu_need_init_)
+    {
+      return;
+    }
+
   double dt = 0;
   if(prev_imu->header.stamp.toSec() < last_lidar_end_time_)
     {

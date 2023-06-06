@@ -373,26 +373,29 @@ void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in)
         p_imu->OnlyPredict(msg, init_imu, kf_pre);
       }
 
-    // publish
-    nav_msgs::Odometry odom_msg;
-    odom_msg.header.frame_id = "camera_init";
-    odom_msg.child_frame_id = "body";
-    odom_msg.header.stamp = msg->header.stamp;
-    auto kf_pre_state = kf_pre.get_x();
-    odom_msg.pose.pose.position.x = kf_pre_state.pos(0);
-    odom_msg.pose.pose.position.y = kf_pre_state.pos(1);
-    odom_msg.pose.pose.position.z = kf_pre_state.pos(2);
-    odom_msg.pose.pose.orientation.x = kf_pre_state.rot.coeffs()[0];
-    odom_msg.pose.pose.orientation.y = kf_pre_state.rot.coeffs()[1];
-    odom_msg.pose.pose.orientation.z = kf_pre_state.rot.coeffs()[2];
-    odom_msg.pose.pose.orientation.w = kf_pre_state.rot.coeffs()[3];
-    odom_msg.twist.twist.linear.x = kf_pre_state.vel(0);
-    odom_msg.twist.twist.linear.y = kf_pre_state.vel(1);
-    odom_msg.twist.twist.linear.z = kf_pre_state.vel(2);
-    odom_msg.twist.twist.angular.x = msg->angular_velocity.x - kf_pre_state.bg(0);
-    odom_msg.twist.twist.angular.y = msg->angular_velocity.y - kf_pre_state.bg(1);
-    odom_msg.twist.twist.angular.z = msg->angular_velocity.z - kf_pre_state.bg(2);
-    pubPrecedeOdom.publish(odom_msg);
+    if (p_imu->getImuInit())
+      {
+        // publish
+        nav_msgs::Odometry odom_msg;
+        odom_msg.header.frame_id = "camera_init";
+        odom_msg.child_frame_id = "body";
+        odom_msg.header.stamp = msg->header.stamp;
+        auto kf_pre_state = kf_pre.get_x();
+        odom_msg.pose.pose.position.x = kf_pre_state.pos(0);
+        odom_msg.pose.pose.position.y = kf_pre_state.pos(1);
+        odom_msg.pose.pose.position.z = kf_pre_state.pos(2);
+        odom_msg.pose.pose.orientation.x = kf_pre_state.rot.coeffs()[0];
+        odom_msg.pose.pose.orientation.y = kf_pre_state.rot.coeffs()[1];
+        odom_msg.pose.pose.orientation.z = kf_pre_state.rot.coeffs()[2];
+        odom_msg.pose.pose.orientation.w = kf_pre_state.rot.coeffs()[3];
+        odom_msg.twist.twist.linear.x = kf_pre_state.vel(0);
+        odom_msg.twist.twist.linear.y = kf_pre_state.vel(1);
+        odom_msg.twist.twist.linear.z = kf_pre_state.vel(2);
+        odom_msg.twist.twist.angular.x = msg->angular_velocity.x - kf_pre_state.bg(0);
+        odom_msg.twist.twist.angular.y = msg->angular_velocity.y - kf_pre_state.bg(1);
+        odom_msg.twist.twist.angular.z = msg->angular_velocity.z - kf_pre_state.bg(2);
+        pubPrecedeOdom.publish(odom_msg);
+      }
 
 
     last_timestamp_imu = timestamp;
@@ -1032,11 +1035,12 @@ int main(int argc, char** argv)
             /******* Publish odometry *******/
             publish_odometry(pubOdomAftMapped);
 
+
             /*** add the feature points to map kdtree ***/
             t3 = omp_get_wtime();
             map_incremental();
             t5 = omp_get_wtime();
-            
+
             /******* Publish points *******/
             if (path_en)                         publish_path(pubPath);
             if (scan_pub_en || pcd_save_en)      publish_frame_world(pubLaserCloudFull);
