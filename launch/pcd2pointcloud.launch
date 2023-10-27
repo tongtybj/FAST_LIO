@@ -2,9 +2,10 @@
     <!-- change your file path -->
     <arg name="file_name" />
     <arg name="rate" default="1"/>
+    <arg name="headless" default="false"/>
     <node pkg="pcl_ros" type="pcd_to_pointcloud" name="pcd_to_pointcloud" args="$(arg file_name) $(arg rate)" output="screen">
         <remap from="cloud_pcd" to="fast_lio"/>
         <param name="frame_id" value="map" />
     </node>
-    <node pkg="rviz" type="rviz" name="rviz"/>
+    <node pkg="rviz" type="rviz" name="rviz" unless="$(arg headless)"/>
 </launch>

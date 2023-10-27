@@ -1,0 +1,27 @@
+<launch>
+    <!-- change your file path -->
+    <arg name="file_name" />
+
+    <arg name="width" default="10.0"/>
+    <arg name="height" default="10.0"/>
+    <arg name="min_height" default="0.0"/>
+    <arg name="max_height" default="0.1"/>
+    <arg name="resolution" default="0.025"/>
+    <arg name="topic_name" default="point_cloud"/>
+
+    <include file="$(find fast_lio)/launch/pcd2pointcloud.launch" >
+      <arg name="file_name" value="$(arg file_name)" />
+      <arg name="rate" value="1" />
+      <arg name="headless" value="true" />
+    </include>
+
+    <node pkg="fast_lio" type="pointcloud_map" name="pointcloud_map" output="screen" >
+      <param name="width" value="$(arg width)"/>
+      <param name="height" value="$(arg height)"/>
+      <param name="min_height" value="$(arg min_height)"/>
+      <param name="max_height" value="$(arg max_height)"/>
+      <param name="resolution" value="$(arg resolution)"/>
+      <param name="topic_name" value="$(arg topic_name)"/>
+    </node>
+
+</launch>
