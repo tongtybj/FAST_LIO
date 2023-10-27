@@ -88,3 +88,7 @@ add_executable(fastlio_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cp
 target_link_libraries(fastlio_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
 target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 add_dependencies(fastlio_mapping ${PROJECT_NAME}_generate_messages_cpp)
+
+add_executable(pointcloud_map src/pointcloud_map.cpp)
+target_link_libraries(pointcloud_map ${catkin_LIBRARIES})
+
