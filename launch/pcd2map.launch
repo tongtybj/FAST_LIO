@@ -7,7 +7,7 @@
     <arg name="min_height" default="0.0"/>
     <arg name="max_height" default="0.1"/>
     <arg name="resolution" default="0.025"/>
-    <arg name="topic_name" default="point_cloud"/>
+    <arg name="map_name" default="map"/>
 
     <include file="$(find fast_lio)/launch/pcd2pointcloud.launch" >
       <arg name="file_name" value="$(arg file_name)" />
@@ -21,7 +21,9 @@
       <param name="min_height" value="$(arg min_height)"/>
       <param name="max_height" value="$(arg max_height)"/>
       <param name="resolution" value="$(arg resolution)"/>
-      <param name="topic_name" value="$(arg topic_name)"/>
+      <param name="topic_name" value="cloud_pcd"/>
     </node>
 
+
+    <node pkg="map_server" type="map_saver" name="map_saver" args="-f $(arg map_name)" output="screen" />
 </launch>
