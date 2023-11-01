@@ -80,7 +80,7 @@ public:
             continue;
           }
 
-        if (fabs(*iter_x) > height_ / 2 || fabs(*iter_y) > width_/2)
+        if (fabs(*iter_x) >= height_ / 2 || fabs(*iter_y) >= width_/2)
           {
             ROS_DEBUG("rejected for out the scope of (%f %f). Point: (%f, %f, %f)", width_, height_, *iter_x, *iter_y, *iter_z);
             continue;
