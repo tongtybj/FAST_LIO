@@ -53,13 +53,10 @@ public:
     output.info.resolution = resolution_;
     output.info.width = width_ / resolution_;
     output.info.height = height_ / resolution_;
-    // The 2-D pose of the lower-left pixel in the map, as (x, y, yaw),
-    // with yaw as counterclockwise rotation (yaw=0 means no rotation).
-    // Many parts of the system currently ignore yaw.
-    // https://www.eureka-moments-blog.com/entry/2022/07/25/170130#Grid-Map%E3%81%AE%E5%88%9D%E6%9C%9F%E5%8C%96
-    output.info.origin.position.x = -height_ / 2;
-    output.info.origin.position.y = width_ / 2;
-    output.info.origin.orientation = tf::createQuaternionMsgFromYaw(-M_PI/2);
+    // The 2-D pose of the right_lower corner is (0,0) pixel in the map, as (x, y, yaw),
+    output.info.origin.position.x = -width_ / 2;
+    output.info.origin.position.y = -height_ / 2;
+    output.info.origin.orientation.w = 1;
     output.data.resize(output.info.width * output.info.height, 0);
 
 
@@ -86,11 +83,9 @@ public:
             continue;
           }
 
-        // TODO, give the correct cell result
-        int w = (width_ / 2 - *iter_y) / resolution_;
-        int h = (height_ / 2 + *iter_x) / resolution_;
+        int w = (*iter_x + width_ / 2) / resolution_;
+        int h = (*iter_y + height_ / 2) / resolution_;
         int index = w + output.info.width * h;
-        //ROS_INFO("index: %d", index);
         output.data.at(index) = 100;
       }
     pub_.publish(output);
