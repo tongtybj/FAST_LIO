@@ -92,3 +92,6 @@ add_dependencies(fastlio_mapping ${PROJECT_NAME}_generate_messages_cpp)
 add_executable(pointcloud_map src/pointcloud_map.cpp)
 target_link_libraries(pointcloud_map ${catkin_LIBRARIES})
 
+add_executable(save_pointcloud src/save_pointcloud.cpp)
+target_link_libraries(save_pointcloud ${catkin_LIBRARIES})
+
