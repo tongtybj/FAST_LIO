@@ -1,0 +1,37 @@
+<launch>
+  <!-- Launch file for Livox MID360 LiDAR -->
+
+  <arg name="map" default="" />
+  <arg name="prefix" default="" />
+
+  <arg name="headless" default="false" />
+
+  <arg name="mapping" default="true" />
+  <arg name="livox_driver" default="true" />
+
+  <!-- fast lio for odometry -->
+  <include file="$(find fast_lio)/launch/mapping_mid360.launch" if="$(arg mapping)">
+    <arg name="rviz" value="false" />
+    <arg name="livox_driver" value="$(arg livox_driver)" />
+  </include>
+
+  <!-- loalization-->
+  <node pkg="fast_lio" type="global_localization.py" name="global_localization" output="screen">
+
+    <param name="headless" value="$(arg headless)"/>
+
+    <remap from="/cloud_registered" to="$(arg prefix)/cloud_registered" />
+    <remap from="/Odometry" to="$(arg prefix)/Odometry" />
+    <rosparam file="$(find fast_lio)/config/localization.yaml"/>
+  </node>
+
+
+  <!-- global map-->
+  <node pkg="pcl_ros" type="pcd_to_pointcloud" name="map_publisher" output="screen" args="$(arg map) 0 _frame_id:=map cloud_pcd:=/3d_map" />
+  <node pkg="pcl_ros" type="pcd_to_pointcloud" name="map_publisher_visualize" output="screen" args="$(arg map) 0 _frame_id:=map cloud_pcd:=/3d_map_visualize" />
+
+  <!-- rviz -->
+  <node launch-prefix="nice" pkg="rviz" type="rviz" name="rviz" args="-d $(find fast_lio)/rviz_cfg/localization.rviz" unless="$(arg headless)"/>
+
+
+</launch>
