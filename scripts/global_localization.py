@@ -81,6 +81,7 @@ class GlobalLocalization():
         # subscriver
         rospy.Subscriber('/cloud_registered', PointCloud2, self.cb_cur_scan, queue_size=1)
         rospy.Subscriber('/Odometry', Odometry, self.cb_cur_odom, queue_size=1)
+        rospy.Subscriber('/reset_pose', Pose, self.cb_reset_pose, queue_size=1)
 
         rospy.logwarn('Waiting for global map......')
         self.initialize_global_map(rospy.wait_for_message('/3d_map', PointCloud2))
@@ -308,6 +309,18 @@ class GlobalLocalization():
 
             # TODO: publish the cropped scan data
             self.publish_point_cloud(self.pub_pc_in_map, pc_msg.header, np.array(self.cur_scan.points))
+
+
+    def cb_reset_pose(self, pose_msg):
+
+        rospy.loginfo("reset pose")
+
+        self.T_map_to_odom =  np.matmul(tf.listener.xyz_to_mat44(pose_msg.position),
+                                        tf.listener.xyzw_to_mat44(pose_msg.orientation))
+
+        # start from initial phase
+        self.phase = 0
+        self.converge_cnt = 0
 
 
     def voxel_down_sample(self, pcd, voxel_size):
