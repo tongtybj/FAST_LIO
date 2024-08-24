@@ -29,6 +29,7 @@ class GlobalLocalization():
         self.converge_cnt = 0
         self.receive_new_scan = False
 
+        self.reset = False
 
         self.global_maps = None
         self.cur_odom = None
@@ -134,12 +135,23 @@ class GlobalLocalization():
 
         tic = time.time()
 
+        if self.reset:
+
+            self.phase = 0
+            self.converge_cnt = 0
+
+            self.T_map_to_odom = self.reset_pose
+
+            self.reset = False
+
         crop_scan = self.crop_curr_scan()
         crop_global_map = self.crop_global_map()
 
         phase_name = self.phase_list[self.phase]
 
         prev_transform = self.T_map_to_odom
+
+
         if self.phase == 0:
 
             # rough ICP point matching for initialize phase
@@ -148,7 +160,7 @@ class GlobalLocalization():
                                                                  max_iteration = 1000)
 
             toc = time.time()
-            print("rough fitness: {}, time: {}".format(fitness, toc - tic))
+            rospy.loginfo("rough fitness: {}, time: {}".format(fitness, toc - tic))
 
         transform, fitness = self.registration_at_scale(crop_scan, crop_global_map, \
                                                         prev_transform)
@@ -315,12 +327,10 @@ class GlobalLocalization():
 
         rospy.loginfo("reset pose")
 
-        self.T_map_to_odom =  np.matmul(tf.listener.xyz_to_mat44(pose_msg.position),
-                                        tf.listener.xyzw_to_mat44(pose_msg.orientation))
+        self.reset = True
+        self.reset_pose =  np.matmul(tf.listener.xyz_to_mat44(pose_msg.position),
+                                     tf.listener.xyzw_to_mat44(pose_msg.orientation))
 
-        # start from initial phase
-        self.phase = 0
-        self.converge_cnt = 0
 
 
     def voxel_down_sample(self, pcd, voxel_size):
