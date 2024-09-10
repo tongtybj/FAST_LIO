@@ -4,6 +4,7 @@ from __future__ import print_function, division, absolute_import
 
 import copy
 import time
+import sys
 
 import open3d as o3d
 if int(o3d.__version__.split('.')[1]) < 10:
@@ -94,6 +95,9 @@ class GlobalLocalization():
                 self.global_localization()
             else:
                 rospy.logwarn_throttle(1.0, 'Waiting for current scan data')
+
+            if rospy.is_shutdown():
+                sys.exit()
 
             rospy.sleep(0.05)
 
