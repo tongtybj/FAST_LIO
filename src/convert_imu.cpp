@@ -13,8 +13,8 @@ void imuCallback(const spinal::Imu::ConstPtr& msg, ros::Publisher& pub) {
     imu_msg.header.frame_id = "livox_frame";
 
     // Copy acceleration data
-    imu_msg.linear_acceleration.x = msg->acc_data[0];
-    imu_msg.linear_acceleration.y = msg->acc_data[1];
+    imu_msg.linear_acceleration.x = msg->acc_data[0]/9.8;
+    imu_msg.linear_acceleration.y = msg->acc_data[1]/9.8;
     imu_msg.linear_acceleration.z = msg->acc_data[2]/9.8;
 
     // Copy angular velocity data
