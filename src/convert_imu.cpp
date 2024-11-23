@@ -39,7 +39,7 @@ int main(int argc, char** argv) {
     ros::NodeHandle nh;
 
     // Create a publisher for the converted IMU data
-    ros::Publisher imu_pub = nh.advertise<sensor_msgs::Imu>("livox/imu", 10);
+    ros::Publisher imu_pub = nh.advertise<sensor_msgs::Imu>("livox/imu_from_spinal", 10);
 
     // Create a subscriber to the input IMU data
     ros::Subscriber imu_sub = nh.subscribe<spinal::Imu>(
