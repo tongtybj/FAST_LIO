@@ -11,8 +11,8 @@ preprocess:
     blind: 0.2 # 0.18, 0.19 is also OK
 
 mapping:
-    acc_cov: 0.05
-    gyr_cov: 0.05
+    acc_cov: 0.01
+    gyr_cov: 0.025
     b_acc_cov: 0.001
     b_gyr_cov: 0.001
     fov_degree:    360
