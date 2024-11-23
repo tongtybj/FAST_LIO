@@ -15,7 +15,7 @@ void imuCallback(const spinal::Imu::ConstPtr& msg, ros::Publisher& pub) {
     // Copy acceleration data
     imu_msg.linear_acceleration.x = msg->acc_data[0];
     imu_msg.linear_acceleration.y = msg->acc_data[1];
-    imu_msg.linear_acceleration.z = msg->acc_data[2];
+    imu_msg.linear_acceleration.z = msg->acc_data[2]/9.8;
 
     // Copy angular velocity data
     imu_msg.angular_velocity.x = msg->gyro_data[0];
