@@ -12,7 +12,7 @@ preprocess:
 
 mapping:
     acc_cov: 0.01
-    gyr_cov: 0.025
+    gyr_cov: 0.01
     b_acc_cov: 0.001
     b_gyr_cov: 0.001
     fov_degree:    360
