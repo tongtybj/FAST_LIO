@@ -59,6 +59,7 @@
 #include <livox_ros_driver2/CustomMsg.h>
 #include "preprocess.h"
 #include <ikd-Tree/ikd_Tree.h>
+#include <spinal/Imu.h>
 
 #define INIT_TIME           (0.1)
 #define LASER_POINT_COV     (0.001)
@@ -336,17 +337,25 @@ void livox_pcl_cbk(const livox_ros_driver2::CustomMsg::ConstPtr &msg)
     sig_buffer.notify_all();
 }
 
-void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in) 
+void imu_cbk(const spinal::Imu::ConstPtr &msg_in) 
 {
     publish_count ++;
     //ROS_INFO("IMU got at: %f",msg_in->header.stamp.toSec());
-    sensor_msgs::Imu::Ptr msg(new sensor_msgs::Imu(*msg_in));
+    sensor_msgs::Imu acc_msg;
+    acc_msg.angular_velocity.x = msg_in->gyro_data[0];
+    acc_msg.angular_velocity.y = msg_in->gyro_data[1];
+    acc_msg.angular_velocity.z = msg_in->gyro_data[2];
+    acc_msg.linear_acceleration.x = msg_in->acc_data[0] / 9.8;
+    acc_msg.linear_acceleration.y = msg_in->acc_data[1] / 9.8;
+    acc_msg.linear_acceleration.z = msg_in->acc_data[2] / 9.8;
 
-    msg->header.stamp = ros::Time().fromSec(msg_in->header.stamp.toSec() - time_diff_lidar_to_imu);
+    sensor_msgs::Imu::Ptr msg(new sensor_msgs::Imu(acc_msg));
+
+    msg->header.stamp = ros::Time().fromSec(msg_in->stamp.toSec() - time_diff_lidar_to_imu);
     if (abs(timediff_lidar_wrt_imu) > 0.1 && time_sync_en)
     {
         msg->header.stamp = \
-        ros::Time().fromSec(timediff_lidar_wrt_imu + msg_in->header.stamp.toSec());
+        ros::Time().fromSec(timediff_lidar_wrt_imu + msg_in->stamp.toSec());
     }
 
     // ROS_INFO("time_diff_lidar_to_imu: %f, timediff_lidar_wrt_imu: %f",

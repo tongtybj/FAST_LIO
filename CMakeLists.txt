@@ -46,6 +46,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
   sensor_msgs
+  spinal
   roscpp
   rospy
   std_msgs
