@@ -342,12 +342,12 @@ void imu_cbk(const spinal::Imu::ConstPtr &msg_in)
     publish_count ++;
     //ROS_INFO("IMU got at: %f",msg_in->header.stamp.toSec());
     sensor_msgs::Imu acc_msg;
-    acc_msg.angular_velocity.x = msg_in->gyro_data[0];
-    acc_msg.angular_velocity.y = msg_in->gyro_data[1];
-    acc_msg.angular_velocity.z = msg_in->gyro_data[2];
-    acc_msg.linear_acceleration.x = msg_in->acc_data[0] / 9.8;
-    acc_msg.linear_acceleration.y = msg_in->acc_data[1] / 9.8;
-    acc_msg.linear_acceleration.z = msg_in->acc_data[2] / 9.8;
+    acc_msg.angular_velocity.x = msg_in->gyro[0];
+    acc_msg.angular_velocity.y = msg_in->gyro[1];
+    acc_msg.angular_velocity.z = msg_in->gyro[2];
+    acc_msg.linear_acceleration.x = msg_in->acc[0] / 9.8;
+    acc_msg.linear_acceleration.y = msg_in->acc[1] / 9.8;
+    acc_msg.linear_acceleration.z = msg_in->acc[2] / 9.8;
 
     sensor_msgs::Imu::Ptr msg(new sensor_msgs::Imu(acc_msg));
 
