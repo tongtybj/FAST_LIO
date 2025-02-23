@@ -56,6 +56,10 @@ class GlobalLocalization():
         self.T_map_to_odom =  np.matmul(tf.listener.xyz_to_mat44(init_pos),
                                   tf.listener.xyzw_to_mat44(init_q))
 
+        self.reset_pos_grid = rospy.get_param(init_pose_ns + "/reset_pos_grid", 0.0)
+        self.reset_yaw_grid = rospy.get_param(init_pose_ns + "/reset_yaw_grid", 0.0)
+
+
         # parameter for registration
         registration_ns = "~registration"
         self.scan_stack_size = rospy.get_param(registration_ns + "/scan_stack_size", 10)
@@ -139,12 +143,17 @@ class GlobalLocalization():
 
         tic = time.time()
 
+        candidate_transforms = [self.T_map_to_odom]
+
         if self.reset:
 
             self.phase = 0
             self.converge_cnt = 0
 
-            self.T_map_to_odom = self.reset_pose
+            candidate_transforms = self.reset_pose
+            can_num = len(candidate_transforms)
+            med_id = can_num // 2
+            self.T_map_to_odom = candidate_transforms[med_id]
 
             self.reset = False
 
@@ -153,24 +162,35 @@ class GlobalLocalization():
 
         phase_name = self.phase_list[self.phase]
 
-        prev_transform = self.T_map_to_odom
 
+        best_fitness = 0
+        best_transform = None
 
-        if self.phase == 0:
+        for transform in candidate_transforms:
 
-            # rough ICP point matching for initialize phase
-            prev_transform, fitness = self.registration_at_scale(crop_scan, crop_global_map, \
-                                                                 prev_transform, \
-                                                                 max_iteration = 1000)
+            if self.phase == 0:
+
+                # rough ICP point matching for initialize phase
+                transform, fitness = self.registration_at_scale(crop_scan, crop_global_map, \
+                                                                     transform, \
+                                                                     max_iteration = 1000)
+
+                toc = time.time()
+                rospy.loginfo("rough fitness: {}, time: {}".format(fitness, toc - tic))
+
+            transform, fitness = self.registration_at_scale(crop_scan, crop_global_map, \
+                                                            transform)
 
             toc = time.time()
-            rospy.loginfo("rough fitness: {}, time: {}".format(fitness, toc - tic))
+            rospy.loginfo('Time: {:.2f}; fitness score:{:.2f}'.format(toc - tic, fitness))
 
-        transform, fitness = self.registration_at_scale(crop_scan, crop_global_map, \
-                                                        prev_transform)
+            if fitness > best_fitness:
+                best_fitness = fitness
+                best_transform= transform
 
-        toc = time.time()
-        rospy.loginfo('Time: {:.2f}; fitness score:{:.2f}'.format(toc - tic, fitness))
+
+        if len(candidate_transforms) > 1:
+            rospy.loginfo('best fitness score:{:.2f}'.format(best_fitness))
 
         self.receive_new_scan = False
 
@@ -178,7 +198,7 @@ class GlobalLocalization():
 
         thresh = self.phase_parameters[phase_name]["localization_thresh"]
 
-        if fitness < thresh:
+        if best_fitness < thresh:
 
             rospy.logwarn('Not valid matching in phase {}'.format(phase_name))
 
@@ -196,7 +216,7 @@ class GlobalLocalization():
             # float phase
             thresh = self.phase_parameters["fix"]["localization_thresh"]
 
-            if fitness > thresh:
+            if best_fitness > thresh:
                 self.converge_cnt +=1
                 if self.converge_cnt > 5:
                     self.phase += 1
@@ -205,7 +225,7 @@ class GlobalLocalization():
             # fix pahse
             pass
 
-        self.T_map_to_odom = transform
+        self.T_map_to_odom = best_transform
 
         # publish map_to_odom and tf
         map_to_odom = Odometry()
@@ -332,8 +352,32 @@ class GlobalLocalization():
         rospy.loginfo("reset pose")
 
         self.reset = True
-        self.reset_pose =  np.matmul(tf.listener.xyz_to_mat44(pose_msg.position),
-                                     tf.listener.xyzw_to_mat44(pose_msg.orientation))
+        reset_pose = np.matmul(tf.listener.xyz_to_mat44(pose_msg.position),
+                               tf.listener.xyzw_to_mat44(pose_msg.orientation))
+
+
+        x = np.array([- self.reset_pos_grid, 0.0, self.reset_pos_grid])
+        x = np.unique(x)
+
+        y = np.array([- self.reset_pos_grid, 0.0, self.reset_pos_grid])
+        y = np.unique(y)
+
+        yaw = np.array([- self.reset_yaw_grid, 0.0, self.reset_yaw_grid])
+        yaw = np.unique(yaw)
+
+        self.reset_pose = []
+        X, Y, YAW = np.meshgrid(x,y,yaw)
+        for x, y, yaw in zip (X.flatten(), Y.flatten(), YAW.flatten()):
+            pos_shift = tf.transformations.translation_matrix((x,y,0))
+            rot_shift = tf.transformations.euler_matrix(0, 0, yaw)
+            pose = tf.transformations.concatenate_matrices(pos_shift, reset_pose, rot_shift)
+
+            self.reset_pose.append(pose)
+
+            euler = tf.transformations.euler_from_matrix(pose)
+            pos = tf.transformations.translation_from_matrix(pose)
+            rospy.loginfo("[reset pose] add new candidate reset pose: {}, {}".format(pos, euler[2]))
+
 
 
 
