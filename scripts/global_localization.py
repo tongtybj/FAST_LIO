@@ -265,7 +265,7 @@ class GlobalLocalization():
 
         return crop_map
 
-    def registration_at_scale(self, pc_scan, pc_map, initial, max_iteration = 100):
+    def registration_at_scale(self, pc_scan, pc_map, initial, max_iteration = 1000):
 
 
         phase_name = self.phase_list[self.phase]
