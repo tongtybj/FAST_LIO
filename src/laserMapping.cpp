@@ -94,6 +94,8 @@ int    iterCount = 0, feats_down_size = 0, NUM_MAX_ITERATIONS = 0, laserCloudVal
 bool   point_selected_surf[100000] = {0};
 bool   lidar_pushed, flg_first_scan = true, flg_exit = false, flg_EKF_inited;
 bool   scan_pub_en = false, dense_pub_en = false, scan_body_pub_en = false;
+double scan_pub_rate = 0;
+double scan_pub_t = -1;
 
 vector<vector<int>>  pointSearchInd_surf; 
 vector<BoxPointType> cub_needrm;
@@ -520,27 +522,37 @@ PointCloudXYZI::Ptr pcl_wait_pub(new PointCloudXYZI(500000, 1));
 PointCloudXYZI::Ptr pcl_wait_save(new PointCloudXYZI());
 void publish_frame_world(const ros::Publisher & pubLaserCloudFull)
 {
-    if(scan_pub_en)
+
+  if (scan_pub_rate > 0)
     {
-        PointCloudXYZI::Ptr laserCloudFullRes(dense_pub_en ? feats_undistort : feats_down_body);
-        int size = laserCloudFullRes->points.size();
-        PointCloudXYZI::Ptr laserCloudWorld( \
-                        new PointCloudXYZI(size, 1));
+      double curr_t = ros::Time::now().toSec();
 
-        for (int i = 0; i < size; i++)
-        {
-            RGBpointBodyToWorld(&laserCloudFullRes->points[i], \
-                                &laserCloudWorld->points[i]);
-        }
+      if (curr_t - scan_pub_t < 1 / scan_pub_rate) return;
 
-        sensor_msgs::PointCloud2 laserCloudmsg;
-        pcl::toROSMsg(*laserCloudWorld, laserCloudmsg);
-        laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
-        laserCloudmsg.header.frame_id = "camera_init";
-        pubLaserCloudFull.publish(laserCloudmsg);
-        publish_count -= PUBFRAME_PERIOD;
+      scan_pub_t = curr_t;
     }
 
+  PointCloudXYZI::Ptr laserCloudFullRes(dense_pub_en ? feats_undistort : feats_down_body);
+  int size = laserCloudFullRes->points.size();
+  PointCloudXYZI::Ptr laserCloudWorld( \
+                                      new PointCloudXYZI(size, 1));
+
+  for (int i = 0; i < size; i++)
+    {
+      RGBpointBodyToWorld(&laserCloudFullRes->points[i], \
+                          &laserCloudWorld->points[i]);
+    }
+
+  sensor_msgs::PointCloud2 laserCloudmsg;
+  pcl::toROSMsg(*laserCloudWorld, laserCloudmsg);
+  laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
+  laserCloudmsg.header.frame_id = "camera_init";
+  pubLaserCloudFull.publish(laserCloudmsg);
+  publish_count -= PUBFRAME_PERIOD;
+}
+
+void save_pcd()
+{
     /**************** save map ****************/
     /* 1. make sure you have enough memories
     /* 2. noted that pcd save will influence the real-time performences **/
@@ -805,6 +817,7 @@ int main(int argc, char** argv)
     nh.param<bool>("publish/scan_publish_en",scan_pub_en, true);
     nh.param<bool>("publish/dense_publish_en",dense_pub_en, true);
     nh.param<bool>("publish/scan_bodyframe_pub_en",scan_body_pub_en, true);
+    nh.param<double>("publish/scan_publish_rate",scan_pub_rate, 0.0);
     nh.param<int>("max_iteration",NUM_MAX_ITERATIONS,4);
     nh.param<string>("map_file_path",map_file_path,"");
     nh.param<string>("common/lid_topic",lid_topic,"livox/lidar");
@@ -1043,7 +1056,8 @@ int main(int argc, char** argv)
 
             /******* Publish points *******/
             if (path_en)                         publish_path(pubPath);
-            if (scan_pub_en || pcd_save_en)      publish_frame_world(pubLaserCloudFull);
+            if (scan_pub_en)      publish_frame_world(pubLaserCloudFull);
+            if (pcd_save_en)      save_pcd();
             if (scan_pub_en && scan_body_pub_en) publish_frame_body(pubLaserCloudFull_body);
             // publish_effect_world(pubLaserCloudEffect);
             // publish_map(pubLaserCloudMap);
