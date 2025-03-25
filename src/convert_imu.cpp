@@ -13,14 +13,14 @@ void imuCallback(const spinal::Imu::ConstPtr& msg, ros::Publisher& pub) {
     imu_msg.header.frame_id = "livox_frame";
 
     // Copy acceleration data
-    imu_msg.linear_acceleration.x = msg->acc_data[0]/9.8;
-    imu_msg.linear_acceleration.y = msg->acc_data[1]/9.8;
-    imu_msg.linear_acceleration.z = msg->acc_data[2]/9.8;
+    imu_msg.linear_acceleration.x = msg->acc[0]/9.8;
+    imu_msg.linear_acceleration.y = msg->acc[1]/9.8;
+    imu_msg.linear_acceleration.z = msg->acc[2]/9.8;
 
     // Copy angular velocity data
-    imu_msg.angular_velocity.x = msg->gyro_data[0];
-    imu_msg.angular_velocity.y = msg->gyro_data[1];
-    imu_msg.angular_velocity.z = msg->gyro_data[2];
+    imu_msg.angular_velocity.x = msg->gyro[0];
+    imu_msg.angular_velocity.y = msg->gyro[1];
+    imu_msg.angular_velocity.z = msg->gyro[2];
 
     // Magnetic data and angles are ignored as sensor_msgs::Imu does not include these fields
 
