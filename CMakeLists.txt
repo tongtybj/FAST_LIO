@@ -46,6 +46,7 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   nav_msgs
   sensor_msgs
+  spinal
   roscpp
   rospy
   std_msgs
@@ -86,5 +87,7 @@ catkin_package(
 
 add_executable(fastlio_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
 target_link_libraries(fastlio_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES})
+add_executable(imu_converter src/convert_imu.cpp)
+target_link_libraries(imu_converter ${catkin_LIBRARIES})
 target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 add_dependencies(fastlio_mapping ${PROJECT_NAME}_generate_messages_cpp)
