@@ -17,6 +17,7 @@ import ros_numpy
 from geometry_msgs.msg import PoseStamped, Pose, Point, Vector3, Quaternion, TransformStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import PointCloud2
+from std_msgs.msg import Float32
 import numpy as np
 import tf
 import tf.transformations
@@ -83,6 +84,7 @@ class GlobalLocalization():
         self.pub_submap = rospy.Publisher('/submap', PointCloud2, queue_size=1)
         self.pub_map_to_odom = rospy.Publisher('/map_to_odom', Odometry, queue_size=1)
         self.broadcaster = tf2_ros.StaticTransformBroadcaster()
+        self.pub_fitness = rospy.Publisher('/localization_fitness', Float32, queue_size=1)
 
         # subscriver
         rospy.Subscriber('/cloud_registered', PointCloud2, self.cb_cur_scan, queue_size=1)
@@ -191,6 +193,8 @@ class GlobalLocalization():
 
         if len(candidate_transforms) > 1:
             rospy.loginfo('best fitness score:{:.2f}'.format(best_fitness))
+        
+        self.pub_fitness.publish(Float32(best_fitness))
 
         self.receive_new_scan = False
 
